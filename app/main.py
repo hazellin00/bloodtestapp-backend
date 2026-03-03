@@ -10,7 +10,7 @@ app = FastAPI(title="Dad's BP Tracker API")
 # Setup CORS for the Vite Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:8080", "http://localhost:5173", "http://127.0.0.1:5173", "https://bloodtestapp-frontend.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
