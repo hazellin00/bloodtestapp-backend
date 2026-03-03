@@ -4,46 +4,56 @@ from pathlib import Path
 import google.generativeai as genai
 from app.core.config import settings
 
-# Load the static medical reference standard document values to inject as Ground Truth.
+# 1. 穩定版初始化方式
+genai.configure(api_key=settings.gemini_api_key)
+# 建議使用 gemini-1.5-flash，速度快且免費額度高
+model = genai.GenerativeModel('gemini-1.5-flash')
+
 def load_health_standards():
-    base_path = Path(__file__).resolve().parent.parent.parent.parent
+    """載入健康標準 JSON"""
+    # 根據您的檔案結構動態找尋 health_standards.json
+    base_path = Path(__file__).resolve().parent.parent.parent
     file_path = base_path / "health_standards.json"
+    
+    # 檢查檔案是否存在，避免報錯
+    if not file_path.exists():
+        return {"error": "標準檔案不存在"}
+        
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
-
-# Initializer for Google GenAI leveraging settings object reading `.env` keys.
-client = genai.Client(api_key=settings.gemini_api_key)
 
 async def generate_health_advice(user_profile: dict, daily_logs: list):
     standards = load_health_standards()
     
-    # Analyze the input payload dynamically using standard prompt techniques.
+    # 這裡保留您原本精美的 Prompt 邏輯
     prompt = f"""
-    You are an empathetic, caring virtual doctor and personal health assistant designed primarily to analyze blood pressure trends.
-    The user reading this is an elderly father, so the tone must be extremely warm, respectful, and easy to understand.
+    你是一位充滿同理心、關懷家人的虛擬醫生和個人健康助手，專門分析血壓趨勢。
+    閱讀這份建議的是一位年邁的父親，因此語氣必須極其溫暖、尊重且易於理解。
     
-    User Profile:
-    Age: {user_profile.get("age")}
-    Weight: {user_profile.get("weight")} kg
-    Height: {user_profile.get("height")} cm
+    用戶資料：
+    年齡: {user_profile.get("age")}
+    體重: {user_profile.get("weight")} 公斤
+    身高: {user_profile.get("height")} 公分
     
-    Today's Measurement Logs:
+    今日測量紀錄：
     {daily_logs}
     
-    Medical Context (Ground Truth):
+    醫療背景參考（基準值）：
     {json.dumps(standards, ensure_ascii=False)}
     
-    Instructions:
-    1. Base your assessment ONLY on the Ground Truth standards provided.
-    2. Write exactly 2 caring sentences summarizing the health trend observed from the day's logs.
-    3. Include a specific short "Daily Calorie Goal" estimated by the BMR Mifflin-St Jeor Equation explicitly available in the Ground Truth Context.
-    4. Provide the "DASH Veggie/Water portions" specific to the estimated BMR level nearest to the 1600kcal, 2000kcal, or 2400kcal tier.
-    5. The final output MUST BE in Traditional Chinese.
-    6. Ensure the mandatory medical disclaimer: 'For reference only; consult a physician before adjusting any medication.' is present at the ending footer of your statement.
+    指令：
+    1. 僅根據提供的基準值標準進行評估。
+    2. 寫下正好 2 句關懷的話，總結從今日日誌中觀察到的健康趨勢。
+    3. 包含一個具體的短「每日卡路里目標」，根據基準值中的 Mifflin-St Jeor 公式估算。
+    4. 根據估算的 BMR 水平（最接近 1600/2000/2400kcal 等級），提供特定的「DASH 蔬果/飲水份量」。
+    5. 最終輸出必須使用繁體中文。
+    6. 必須包含強制性醫療免責聲明：'僅供參考；在調整任何藥物之前，請務必諮詢醫師。' 放在結尾處。
     """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-pro',
-        contents=prompt,
-    )
-    return response.text
+    try:
+        # 2. 穩定版呼叫方式
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        print(f"AI 生成失敗: {e}")
+        return "暫時無法生成建議。請保持心情愉快，並定時量測血壓。僅供參考；在調整任何藥物之前，請務必諮詢醫師。"
