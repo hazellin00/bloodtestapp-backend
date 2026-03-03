@@ -22,5 +22,13 @@ def read_root():
 
 app.include_router(api_router, prefix="/api")
 
+# app/main.py
 
+@app.get("/api/v1/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": "2026-03-03T23:30:00Z", # 這裡可隨便寫
+        "version": "1.0.0"
+    }
 
