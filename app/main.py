@@ -5,6 +5,8 @@ from app.routes import api_router
 
 app = FastAPI(title="Dad's BP Tracker API")
 
+
+
 # Setup CORS for the Vite Frontend
 app.add_middleware(
     CORSMiddleware,
@@ -19,3 +21,6 @@ def read_root():
     return {"status": "ok", "message": "Backend for Dad's BP Tracker is running"}
 
 app.include_router(api_router, prefix="/api")
+
+
+
