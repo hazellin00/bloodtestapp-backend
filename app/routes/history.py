@@ -1,24 +1,49 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from datetime import date, datetime
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 import os
-from ..database import supabase  # 假設您已配置好 supabase client
+from ..database import supabase  # 確保路徑正確
 import google.generativeai as genai
 
-router = APIRouter(prefix="/history", tags=["Calendar History"])
+# 💡 修正 1: 移除重複的 prefix，讓路徑保持為 /api/history
+router = APIRouter(tags=["Health History"])
 
-# 配置 Gemini
+# 配置 Gemini (使用穩定版語法)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
+# 定義資料格式
+class HealthLogCreate(BaseModel):
+    user_id: str
+    systolic: int
+    diastolic: int
+    pulse: int
+    period: str  # 早上/中午/晚上
+
+# --- 1. 儲存血壓 (這是你前端 POST 失敗的地方) ---
+@router.post("/")
+async def create_log(log: HealthLogCreate):
+    """ 儲存爸爸量測的血壓 """
+    data = {
+        "user_id": log.user_id,
+        "systolic": log.systolic,
+        "diastolic": log.diastolic,
+        "pulse": log.pulse,
+        "period": log.period,
+        "created_at": datetime.now().isoformat()
+    }
+    
+    response = supabase.table("health_logs").insert(data).execute()
+    if not response.data:
+        raise HTTPException(status_code=400, detail="儲存失敗")
+    
+    return {"status": "success", "data": response.data[0]}
+
+# --- 2. 獲取日總結 (女兒端查詢用) ---
 @router.get("/{user_id}/{target_date}")
 async def get_daily_summary(user_id: str, target_date: date):
-    """
-    獲取爸爸特定日期的血壓紀錄與 AI 總結
-    target_date 格式: YYYY-MM-DD
-    """
-    # 1. 從 Supabase 抓取當天的紀錄
-    # 這裡搜尋 created_at 在 target_date 的 00:00 到 23:59 之間
+    """ 獲取特定日期的紀錄與 AI 暖心回顧 """
     start_time = datetime.combine(target_date, datetime.min.time()).isoformat()
     end_time = datetime.combine(target_date, datetime.max.time()).isoformat()
 
@@ -30,33 +55,18 @@ async def get_daily_summary(user_id: str, target_date: date):
         .execute()
 
     logs = response.data
-
     if not logs:
-        return {"date": target_date, "logs": [], "summary": "當天沒有紀錄喔，記得提醒爸爸量血壓！"}
+        return {"date": target_date, "logs": [], "summary": "今天還沒量血壓喔！"}
 
-    # 2. 整理數據給 Gemini
-    log_summary = "\n".join([
-        f"時段: {l['period']}, 血壓: {l['systolic']}/{l['diastolic']}, 心率: {l['heart_rate']}"
-        for l in logs
-    ])
-
-    # 3. 呼叫 Gemini 生成「暖心回顧」
-    prompt = f"""
-    我父親在 {target_date} 的血壓紀錄如下：
-    {log_summary}
-    請根據這些數據，寫一段 2 句話的中文暖心回顧。
-    如果是正常的，請給予鼓勵；如果偏高，請溫柔提醒。
-    最後必須加上免責聲明：『僅供參考；調整藥物前請務必諮詢醫師。』
-    """
+    # 整理數據給 AI
+    log_text = "\n".join([f"{l['period']}: {l['systolic']}/{l['diastolic']}" for l in logs])
+    
+    prompt = f"我父親在 {target_date} 的血壓紀錄：\n{log_text}\n請寫兩句繁體中文暖心回顧，結尾須包含醫療免責聲明。"
     
     try:
-        ai_response = model.generate_content(prompt)
-        summary = ai_response.text
-    except Exception:
-        summary = "當天數據已存檔，請參考上方數值。"
+        ai_res = model.generate_content(prompt)
+        summary = ai_res.text
+    except:
+        summary = "數據已存檔，請參考數值。"
 
-    return {
-        "date": target_date,
-        "logs": logs,
-        "summary": summary
-    }
+    return {"date": target_date, "logs": logs, "summary": summary}
