@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from google import genai
+import google.generativeai as genai
 from app.core.config import settings
 
 # Load the static medical reference standard document values to inject as Ground Truth.
