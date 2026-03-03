@@ -1,0 +1,62 @@
+{
+  "bmi_categories": {
+    "underweight": {
+      "max_limit": 18.4,
+      "description": "Underweight"
+    },
+    "normal": {
+      "min_limit": 18.5,
+      "max_limit": 24.9,
+      "description": "Normal weight"
+    },
+    "overweight": {
+      "min_limit": 25.0,
+      "max_limit": 29.9,
+      "description": "Overweight"
+    },
+    "obesity": {
+      "min_limit": 30.0,
+      "description": "Obesity"
+    }
+  },
+  "bmr_formula": {
+    "name": "Mifflin-St Jeor Equation",
+    "description": "Calculates Basal Metabolic Rate (BMR) for elderly males",
+    "formula": "(10 * weight_kg) + (6.25 * height_cm) - (5 * age_years) + 5"
+  },
+  "dash_diet": {
+    "description": "DASH Diet daily servings for 1600kcal, 2000kcal, and 2400kcal dietary tiers",
+    "categories": {
+      "1600_kcal": {
+        "grains": "6",
+        "vegetables": "3-4",
+        "fruits": "4",
+        "dairy_low_fat": "2-3",
+        "lean_meats_poultry_fish": "1-2 servings (<=3 oz total)",
+        "nuts_seeds_legumes": "3-4 per week",
+        "fats_and_oils": "2",
+        "sweets_and_added_sugars": "0"
+      },
+      "2000_kcal": {
+        "grains": "6-8",
+        "vegetables": "4-5",
+        "fruits": "4-5",
+        "dairy_low_fat": "2-3",
+        "lean_meats_poultry_fish": "<=6 oz total",
+        "nuts_seeds_legumes": "4-5 per week",
+        "fats_and_oils": "2-3",
+        "sweets_and_added_sugars": "<=5 per week"
+      },
+      "2400_kcal": {
+        "grains": "10-11",
+        "vegetables": "5-6",
+        "fruits": "5-6",
+        "dairy_low_fat": "3",
+        "lean_meats_poultry_fish": "<=6 oz total",
+        "nuts_seeds_legumes": "1 per day",
+        "fats_and_oils": "3",
+        "sweets_and_added_sugars": "<=2 per day"
+      }
+    }
+  }
+}

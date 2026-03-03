@@ -8,6 +8,8 @@ import MedicalDisclaimer from "@/components/MedicalDisclaimer";
 import { averageReadings, type BPReading } from "@/lib/bp-utils";
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { saveHealthLog, getInsights } from "@/lib/api";
+import ProfileSetup, { type UserProfileData } from "@/components/ProfileSetup";
 
 const DadPortal = () => {
   const [currentDay, setCurrentDay] = useState(1);
@@ -15,6 +17,10 @@ const DadPortal = () => {
   const [sessionIndex, setSessionIndex] = useState(1);
   const [readings, setReadings] = useState<BPReading[]>([]);
   const [showResult, setShowResult] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfileData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Track completion
   const completedPeriods: Record<number, { morning: boolean; evening: boolean }> = {};
@@ -31,51 +37,77 @@ const DadPortal = () => {
   }
 
   const handleSubmit = useCallback(
-    (reading: Omit<BPReading, "timestamp">) => {
+    async (reading: Omit<BPReading, "timestamp">) => {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
       const newReading: BPReading = {
         ...reading,
         timestamp: new Date().toISOString(),
       };
-      const updated = [...readings, newReading];
-      setReadings(updated);
-      setShowResult(true);
+      
+      const logBody = {
+        user_id: profile?.id || "dad-001",
+        systolic: newReading.systolic,
+        diastolic: newReading.diastolic,
+        heart_rate: newReading.heartRate,
+        period: currentPeriod,
+      };
 
-      // Advance session logic
-      setTimeout(() => {
-        if (sessionIndex === 1) {
-          setSessionIndex(2);
-          setShowResult(false);
-        } else {
-          // Done with this period
-          if (currentPeriod === "morning") {
-            setCurrentPeriod("evening");
-            setSessionIndex(1);
+      try {
+        // Save to Supabase first
+        await saveHealthLog(logBody);
+
+        const updated = [...readings, newReading];
+        setReadings(updated);
+        setShowResult(true);
+
+        // Fetch AI Insights in background
+        if (profile) {
+          getInsights(profile, updated)
+            .then((res) => setAiAdvice(res.advice))
+            .catch(console.error);
+        }
+
+        // Advance session logic
+        setTimeout(() => {
+          if (sessionIndex === 1) {
+            setSessionIndex(2);
             setShowResult(false);
           } else {
-            // Done with the day
-            if (currentDay < 7) {
-              setCurrentDay((d) => d + 1);
-              setCurrentPeriod("morning");
+            // Done with this period
+            if (currentPeriod === "morning") {
+              setCurrentPeriod("evening");
               setSessionIndex(1);
               setShowResult(false);
+            } else {
+              // Done with the day
+              if (currentDay < 7) {
+                setCurrentDay((d) => d + 1);
+                setCurrentPeriod("morning");
+                setSessionIndex(1);
+                setShowResult(false);
+              }
+              // else: 7 days complete
             }
-            // else: 7 days complete
           }
-        }
-      }, 3000);
+        }, 3000);
+      } catch (error: any) {
+        console.error("Submission failed:", error);
+        setSubmitError("儲存失敗，請檢查網路連線或稍後再試。 (" + (error.message || "未知錯誤") + ")");
+      } finally {
+        setIsSubmitting(false);
+      }
     },
-    [readings, sessionIndex, currentPeriod, currentDay]
+    [readings, sessionIndex, currentPeriod, currentDay, profile]
   );
 
   const lastReading = readings[readings.length - 1];
   const todayReadings = readings.slice(-4);
   const avg = averageReadings(todayReadings);
 
-  // Mock wellness advice (will be replaced by Gemini via Cloud)
-  const mockAdvice = `🥦 今天建議多吃深綠色蔬菜（如菠菜、花椰菜），攝取300克以上。
-💧 目標飲水量：1500ml（約6杯水）。
-🚶 建議散步30分鐘，維持心肺健康。
-🧂 減少鈉攝取，避免醃漬食品。`;
+  // Fallback advice if Gemini is loading or fails
+  const mockAdvice = `🥦 正在為您生成專屬健康建議... 請稍候。`;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 max-w-2xl mx-auto">
@@ -97,45 +129,63 @@ const DadPortal = () => {
         <ProgressTracker currentDay={currentDay} completedPeriods={completedPeriods} />
       </div>
 
-      {/* Result or Form */}
-      <AnimatePresence mode="wait">
-        {showResult && lastReading ? (
-          <motion.div
-            key="result"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-6 mb-8"
-          >
-            <TrafficLight systolic={lastReading.systolic} diastolic={lastReading.diastolic} />
-            <p className="elder-text text-muted-foreground">正在記錄中...</p>
-          </motion.div>
-        ) : (
-          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <BPEntryForm period={currentPeriod} sessionIndex={sessionIndex} onSubmit={handleSubmit} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Today's Average */}
-      {avg && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-card rounded-2xl p-6 border border-border shadow-sm mb-8 text-center"
-        >
-          <h3 className="elder-heading mb-3">📊 今日平均血壓</h3>
-          <TrafficLight systolic={avg.systolic} diastolic={avg.diastolic} />
-          {avg.heartRate > 0 && (
-            <p className="elder-text mt-2 text-muted-foreground">心率：{avg.heartRate} bpm</p>
+      {/* Conditionally Show Profile Setup or BP Form */}
+      {!profile ? (
+        <ProfileSetup onComplete={setProfile} />
+      ) : (
+        <>
+          {/* Submit Error */}
+          {submitError && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-destructive/10 border-l-4 border-destructive p-4 mb-8 rounded-r-xl"
+            >
+              <p className="elder-text text-destructive font-bold">{submitError}</p>
+            </motion.div>
           )}
-        </motion.div>
-      )}
 
-      {/* Wellness Card */}
-      <div className="mb-8">
-        <WellnessCard advice={readings.length > 0 ? mockAdvice : null} />
-      </div>
+          {/* Result or Form */}
+          <AnimatePresence mode="wait">
+            {showResult && lastReading ? (
+              <motion.div
+                key="result"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center gap-6 mb-8"
+              >
+                <TrafficLight systolic={lastReading.systolic} diastolic={lastReading.diastolic} />
+                <p className="elder-text text-muted-foreground">{isSubmitting ? "正在儲存中..." : "儲存成功！正準備下一次紀錄"}</p>
+              </motion.div>
+            ) : (
+              <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <BPEntryForm period={currentPeriod} sessionIndex={sessionIndex} onSubmit={handleSubmit} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Today's Average */}
+          {avg && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-card rounded-2xl p-6 border border-border shadow-sm mb-8 text-center"
+            >
+              <h3 className="elder-heading mb-3">📊 今日平均血壓</h3>
+              <TrafficLight systolic={avg.systolic} diastolic={avg.diastolic} />
+              {avg.heartRate > 0 && (
+                <p className="elder-text mt-2 text-muted-foreground">心率：{avg.heartRate} bpm</p>
+              )}
+            </motion.div>
+          )}
+
+          {/* Wellness Card */}
+          <div className="mb-8">
+            <WellnessCard advice={readings.length > 0 ? (aiAdvice || mockAdvice) : null} />
+          </div>
+        </>
+      )}
 
       {/* Navigation to Family Portal */}
       <div className="text-center">
