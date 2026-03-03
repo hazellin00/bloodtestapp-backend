@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        body: ['Noto Sans TC', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,6 +49,12 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        bp: {
+          green: "hsl(var(--bp-green))",
+          yellow: "hsl(var(--bp-yellow))",
+          orange: "hsl(var(--bp-orange))",
+          red: "hsl(var(--bp-red))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
