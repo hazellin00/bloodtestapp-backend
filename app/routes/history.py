@@ -9,14 +9,14 @@ from ..database import supabase  # 確保路徑正確
 # 💡 修正：使用 Google 官方推薦的新版導入方式
 from google import genai 
 
-# 💡 修正 1: 移除重複的 prefix，讓路徑保持為 /api/history
+# 移除重複的 prefix，讓路徑保持為 /api/history
 router = APIRouter(tags=["Health History"])
 
-# 💡 配置 Gemini (使用 2026 最新 Client 語法)
+#  配置 Gemini (使用 2026 最新 Client 語法)
 # 如果環境變數讀取有問題，這裡會直接報錯，方便偵錯
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    print("❌ 警告：找不到 GEMINI_API_KEY 環境變數")
+    print("警告：找不到 GEMINI_API_KEY 環境變數")
 
 client = genai.Client(api_key=api_key)
 
