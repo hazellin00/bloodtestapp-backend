@@ -1,6 +1,7 @@
 from fastapi import APIRouter
-from . import history, insights
+from .history import router as history_router
+from .insights import router as insight_router
 
 api_router = APIRouter()
-api_router.include_router(history.router, prefix="/history", tags=["History"])
-api_router.include_router(insights.router, prefix="/insights", tags=["Insights"])
+api_router.include_router(history_router, prefix="/history")
+api_router.include_router(insight_router, prefix="/insights")
