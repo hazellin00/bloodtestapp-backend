@@ -42,6 +42,12 @@ app.add_middleware(
 from app.routes import api_router
 app.include_router(api_router, prefix="/api")
 
+from app.scheduler import start_scheduler
+
+@app.on_event("startup")
+async def on_startup():
+    start_scheduler()
+
 @app.get("/")
 def read_root():
     return {
