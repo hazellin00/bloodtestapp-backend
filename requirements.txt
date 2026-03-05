@@ -5,5 +5,4 @@ pydantic
 pydantic-settings
 supabase
 python-dotenv
-google-generativeai
 google-genai
