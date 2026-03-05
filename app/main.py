@@ -3,7 +3,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client, Client
+from supabase import create_client, Client, ClientOptions
+import httpx
 
 # 1. 取得路徑並載入環境變數
 base_dir = Path(__file__).resolve().parent.parent
@@ -24,7 +25,13 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     supabase = None 
 else:
     print("✅ 成功：Supabase 環境變數已載入")
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    # ✅ 關鍵修復：停用 HTTP/2 以避免 httpx.LocalProtocolError (StreamReset)
+    custom_client = httpx.Client(http2=False)
+    supabase: Client = create_client(
+        SUPABASE_URL, 
+        SUPABASE_KEY,
+        options=ClientOptions(httpx_client=custom_client)
+    )
 
 # 4. CORS 設定 (保持不變)
 app.add_middleware(
