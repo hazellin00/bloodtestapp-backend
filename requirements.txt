@@ -6,3 +6,4 @@ pydantic-settings
 supabase
 python-dotenv
 google-genai
+pywebpush
