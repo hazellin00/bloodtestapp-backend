@@ -8,9 +8,9 @@ from supabase import create_client, Client, ClientOptions
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# 2. 讀取環境變數
-url: str = os.getenv("SUPABASE_URL")
-key: str = os.getenv("SUPABASE_ANON_KEY")
+# 2. 讀取環境變數 (strip 防止 Render 上的空白/換行污染)
+url: str = (os.getenv("SUPABASE_URL") or "").strip()
+key: str = (os.getenv("SUPABASE_ANON_KEY") or "").strip()
 
 # 3. 檢查變數
 if not url or not key:
